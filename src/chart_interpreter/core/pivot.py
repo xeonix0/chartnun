@@ -13,7 +13,9 @@ def find_pivot_highs(
     n = len(candles)
     for i in range(left_bars, n - right_bars):
         window = candles[i - left_bars : i + right_bars + 1]
-        if candles[i].high == max(c.high for c in window):
+        window_highs = [c.high for c in window]
+        max_high = max(window_highs)
+        if candles[i].high == max_high and window_highs.count(max_high) == 1:
             pivots.append((i, candles[i].high))
     return pivots
 
@@ -27,7 +29,9 @@ def find_pivot_lows(
     n = len(candles)
     for i in range(left_bars, n - right_bars):
         window = candles[i - left_bars : i + right_bars + 1]
-        if candles[i].low == min(c.low for c in window):
+        window_lows = [c.low for c in window]
+        min_low = min(window_lows)
+        if candles[i].low == min_low and window_lows.count(min_low) == 1:
             pivots.append((i, candles[i].low))
     return pivots
 

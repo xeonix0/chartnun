@@ -20,3 +20,18 @@
   2. 캔들 수 부족 신호 방식 — 전용 예외로 확정, `errors.py`에 `InsufficientCandlesError`/`MIN_CANDLES_REQUIRED=60` 구현(아직 `build_summary.py`에 연결 안 됨, §8 우선순위 2번 작업 시 연결 예정)
 - xeonix0/chartnun GitHub 저장소는 이 환경에서 인증 수단(gh CLI 미설치) 없이 접근 불가 — 비공개 저장소로 확인, 참고 못 함
 - 게이트 재확인: `ruff check .` / `mypy . --strict` / `pytest` 전부 통과 (14 tests, 신규 파일 3개 추가 후에도 회귀 없음)
+
+## 2026-07-08 (gh CLI 설치·인증, GitHub 연결)
+
+- winget으로 `gh` CLI 설치 후 device-code 로그인으로 `xeonix0` 계정 인증 완료. `xeonix0/chartnun`은 실제로는 완전히 빈 저장소였음(브랜치 없음) — 이전 세션의 "접근 불가"는 권한 문제가 아니라 인증 수단 자체가 없었던 것으로 확인
+- 저장소 로컬 git 아이덴티티(user.name/user.email, --global 아님) 설정 후 초기 스캐폴딩+pivot/ma_relation 커밋을 `origin main`에 push
+
+## 2026-07-08 (설계 검토 3회차 — MASTER.md 정리 + summarizer 1차 구현)
+
+- `docs/MASTER.md`를 "조사 이력 나열" 구조에서 "현재 확정된 설계 계약" 표 하나로 재구성. 이력 서술은 `docs/HISTORY.md`로 완전히 이관
+- 남아있던 유일한 미확정 항목(실 데이터 검증 fixture 전략)을 `tests/fixtures/real/{project}_{symbol}_{timeframe}.json` 정적 스냅샷 커밋 방식으로 확정
+- `summarizer/templates.py` + `summarizer/build_summary.py` 구현: `build_partial_summary()` — pivot.py/ma_relation.py 두 모듈만으로 만들 수 있는 추세·위치 문장만 조합. `analyze_and_summarize()`/`ChartAnalysis` 전체 조립은 range_box/volume_filter/candle_pattern이 갖춰진 뒤(§8 4번 완료)로 의도적으로 미룸 — 지금 만들면 volume_ratio/candle_pattern/range_state를 가짜 값으로 채우게 되므로
+- 테스트 작성 중 `core/pivot.py`의 실제 버그 발견 및 수정: 완전 평탄(고가/저가가 전부 동일한) 구간에서 `==` 비교만으로는 구간 내 모든 캔들이 pivot으로 잡히던 문제 — 유일한 최댓값/최솟값일 때만 pivot으로 인정하도록 수정(`window_highs.count(max_high) == 1`). 기존에 "이론적 우려"로만 적어뒀던 알려진 단순화가 합성 테스트로 실제로 재현됨
+- adapter 함수 시그니처 원칙 확정: 라이브러리는 소비 프로젝트의 구체 타입(주단 `Bar`, Bybit `DataFrame`)에 의존하지 않고 원시 값만 받는다 — 세부 시그니처는 §8 5번 실제 착수 시점에 확정
+- 실 데이터 검증 순서 확정: 코단/비단부터(Bybit REST로 60봉 즉시 확보 가능), 주단은 실시간 집계라 시간이 걸려 별도 트랙으로 나중에 — 스펙 §8-5의 "연동은 주단 먼저" 순서와는 별개
+- 게이트 확인: `ruff check .` / `mypy . --strict` / `pytest` 전부 통과 (23 tests)
