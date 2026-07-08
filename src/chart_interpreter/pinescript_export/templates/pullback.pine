@@ -1,0 +1,21 @@
+//@version=6
+indicator("찰눈 눌림목 (pullback)", overlay=true)
+
+// core/ma_relation.py와 동일한 정의: EMA 대비 거리(%)가 근접 임계값 이내면 "근접",
+// 그 밖이면 위/아래로 눌림목 여부를 판정한다.
+period = input.int(${period}, title="EMA Period", minval=1)
+nearThresholdPct = input.float(${nearThresholdPct}, title="이평선 근접 임계값(%)")
+
+ema = ta.ema(close, period)
+distancePct = (close - ema) / ema * 100
+
+isNear = math.abs(distancePct) <= nearThresholdPct
+isAboveMa = distancePct > 0 and not isNear
+isBelowMa = distancePct < 0 and not isNear
+
+plot(ema, title="EMA", color=#1565C0, linewidth=1)
+
+plotshape(isAboveMa, title="이평선 위 눌림", style=shape.circle, location=location.belowbar, color=#2E7D32, size=size.tiny)
+plotshape(isBelowMa, title="이평선 아래", style=shape.circle, location=location.abovebar, color=#C62828, size=size.tiny)
+
+bgcolor(isNear ? color.new(#1565C0, 90) : na)

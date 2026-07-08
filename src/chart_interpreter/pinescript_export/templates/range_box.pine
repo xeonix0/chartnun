@@ -1,0 +1,34 @@
+//@version=6
+indicator("찰눈 박스권 (range_box)", overlay=true)
+
+// core/range_box.py와 동일한 정의: 진행 중인 현재 봉(high/low[0])은 박스 경계 계산에서
+// 제외하고, 그 직전 확정 boxWindow개 봉만으로 박스 상/하단을 그린다.
+boxWindow = input.int(${window}, title="Box Window", minval=1)
+lookback = input.int(${lookback}, title="Lookback", minval=1)
+compressionThresholdPct = input.float(${compressionThresholdPct}, title="압축 판정 임계값(%)")
+
+boxHigh = ta.highest(high[1], boxWindow)
+boxLow = ta.lowest(low[1], boxWindow)
+recentRange = boxHigh - boxLow
+
+var float sumRanges = na
+var int countRanges = na
+sumRanges := 0.0
+countRanges := 0
+for i = 0 to lookback - boxWindow
+    rangeHigh = ta.highest(high[1 + i], boxWindow)
+    rangeLow = ta.lowest(low[1 + i], boxWindow)
+    sumRanges += (rangeHigh - rangeLow)
+    countRanges += 1
+
+avgRange = countRanges > 0 ? sumRanges / countRanges : na
+compressionPct = (not na(avgRange) and avgRange > 0) ? recentRange / avgRange * 100 : na
+
+isBreakout = close > boxHigh or close < boxLow
+isCompressed = not na(compressionPct) and compressionPct <= compressionThresholdPct
+
+plot(boxHigh, title="박스 상단", color=#7E57C2, style=plot.style_line)
+plot(boxLow, title="박스 하단", color=#7E57C2, style=plot.style_line)
+
+bgcolor(isCompressed and not isBreakout ? color.new(#7E57C2, 85) : na)
+plotshape(isBreakout, title="박스권 이탈", style=shape.triangleup, location=location.abovebar, color=close > boxHigh ? #2E7D32 : #C62828, size=size.tiny)

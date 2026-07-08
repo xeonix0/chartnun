@@ -1,0 +1,43 @@
+//@version=6
+indicator("찰눈 추세선 (trendline)", overlay=true)
+
+// core/trendline.py와 동일한 정의: 직전 두 확정 저점을 연결하면 상승 추세선,
+// 직전 두 확정 고점을 연결하면 하락 추세선.
+leftBars = input.int(${leftBars}, title="Left Bars", minval=1)
+rightBars = input.int(${rightBars}, title="Right Bars", minval=1)
+
+pivotHigh = ta.pivothigh(high, leftBars, rightBars)
+pivotLow = ta.pivotlow(low, leftBars, rightBars)
+
+var float prevHighPrice = na
+var int prevHighBar = na
+var float lastHighPrice = na
+var int lastHighBar = na
+
+var float prevLowPrice = na
+var int prevLowBar = na
+var float lastLowPrice = na
+var int lastLowBar = na
+
+if not na(pivotHigh)
+    prevHighPrice := lastHighPrice
+    prevHighBar := lastHighBar
+    lastHighPrice := pivotHigh
+    lastHighBar := bar_index - rightBars
+
+if not na(pivotLow)
+    prevLowPrice := lastLowPrice
+    prevLowBar := lastLowBar
+    lastLowPrice := pivotLow
+    lastLowBar := bar_index - rightBars
+
+var line downtrendLine = na
+var line uptrendLine = na
+
+if not na(pivotHigh) and not na(prevHighPrice)
+    line.delete(downtrendLine)
+    downtrendLine := line.new(prevHighBar, prevHighPrice, lastHighBar, lastHighPrice, color=#EF6C00, width=2, style=line.style_dashed)
+
+if not na(pivotLow) and not na(prevLowPrice)
+    line.delete(uptrendLine)
+    uptrendLine := line.new(prevLowBar, prevLowPrice, lastLowBar, lastLowPrice, color=#EF6C00, width=2, style=line.style_dashed)

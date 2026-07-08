@@ -113,3 +113,15 @@
 - 게이트 확인: `ruff check .` / `mypy . --strict` / `pytest` 전부 통과 (71 tests, 신규 6건)
 - `docs/MASTER.md` §10-3 3번을 `[x]`로 갱신, "확정된 설계 계약" 표에 `visualizer/` 의존성 격리(plotly 추가 반영)·interactive_chart overlay 계약 재사용 2개 행 추가/수정, "다음 액션" 3번을 "`interactive_chart.py`는 완료, 다음은 `pinescript_export`(4번) 또는 Alert 연동(2번, 범위 밖) 중 선택"으로 갱신
 - `pinescript_export`(§10-3 4번, "여유 있을 때 추가, 필수는 아님")와 Alert 이미지/HTML 첨부 연동(2번, 주단/코단/비단 쪽 작업)이 남은 항목 — 다음 세션에서 우선순위 재확인 필요
+
+## 2026-07-08 (§10-3 4번 — pinescript_export 구현)
+
+- `상태 확인` 결과 §8 전부 완료, §10-3 1·3번 완료, 2번은 범위 밖이라 남은 선택지는 4번(`pinescript_export`) 하나뿐 — 다만 스펙상 "여유 있을 때, 필수 아님"으로 이전 두 세션 모두 유보해온 항목이라 착수 전 사용자에게 확인 후 진행 확정
+- 스펙 §10-2를 읽고 `pinescript_export/generate.py`(`export_pine_script(strategy, params) -> str`) + 템플릿 3종(`templates/pullback.pine`, `templates/range_box.pine`, `templates/trendline.pine`) 구현. 스펙 예시(`export_pine_script(strategy="trendline", params={"leftBars": 5, "rightBars": 5})`)와 정확히 일치하도록 파라미터 이름을 대응 core 모듈 시그니처 그대로 맞춤: `trendline.pine`←`core/trendline.py`(leftBars/rightBars, ta.pivothigh/pivotlow로 직전 두 확정 고점/저점 연결), `range_box.pine`←`core/range_box.py`(window/lookback/compressionThresholdPct, `high[1]` 기준으로 진행 중 봉 제외해 박스 계산 — Python의 `candles[:-1]` 원칙과 동일), `pullback.pine`←`core/ma_relation.py`(period/nearThresholdPct, EMA 거리% 계산과 근접 임계값 판정 동일)
+- 색상은 `visualizer/colors.py`와 동일한 값을 Pine 쪽에 직접 하드코딩(추세선=#EF6C00 주황, 박스권=#7E57C2 보라, 이평선=#1565C0 파랑, 양봉/음봉=#2E7D32/#C62828) — Pine 템플릿이 `colors.py`를 import할 수는 없으므로(별도 언어) 값만 동일하게 맞춰 "어떤 프로젝트 결과를 봐도 동일 색상=동일 의미"라는 §10-1-1 원칙 3을 Python 시각화와 Pine 양쪽에서 유지
+- 파라미터 주입은 `string.Template.substitute()` 사용 — 누락된 파라미터가 있으면 조용히 넘어가지 않고 `KeyError`를 잡아 `ValueError`로 재발생(adapter 함수들의 "알 수 없는 값은 명시적 실패" 원칙과 동일). 알 수 없는 `strategy` 문자열도 동일하게 `ValueError`
+- `.pine` 템플릿이 실제로 wheel에 포함되는지 `uv build` 후 wheel 내부를 직접 열어 확인(이전 세션에 `py.typed` 마커 누락 여부를 확인했던 것과 동일한 절차) — `hatchling`이 `packages = ["src/chart_interpreter"]` 설정만으로 비-`.py` 데이터 파일도 자동 포함함을 실측 확인, 별도 `package-data` 설정 불필요
+- 테스트 5건 추가(`tests/test_pinescript_export.py`) — 3개 전략 각각 파라미터 치환 확인, 알 수 없는 strategy/누락된 파라미터 각각 `ValueError` 확인
+- **STOP GATE 3 한계 명시**: 이 기능은 스펙상 "TradingView Pine Editor에 붙여넣어 확인"하는 용도인데, 이 개발 환경엔 브라우저/TradingView 계정이 없어 생성된 `.pine` 코드가 실제로 Pine v6 컴파일러를 통과하는지는 검증하지 못함. Python 문자열 치환 로직(단위테스트)과 각 `.pine` 템플릿의 Pine v6 문법·`core/` 대응 로직과의 1:1 대조(수작업 리뷰)까지만 확인 — "완성" 대신 `docs/MASTER.md`에 `[~]`(부분 완료)로 기록하고 실행 검증 필요 항목으로 다음 액션에 남김. 특히 `range_box.pine`의 `for` 루프(매 반복 `ta.highest`/`ta.lowest` 재계산)가 Pine 계산 시간 제한에 걸릴 가능성은 실제 TradingView 환경에서만 확인 가능
+- 게이트 확인: `ruff check .` / `mypy . --strict` / `pytest` 전부 통과 (76 tests, 신규 5건). `ruff`에서 `generate.py`의 f-string 라인이 100자 초과로 걸린 것을 줄바꿈으로 수정
+- `docs/MASTER.md` §10-3 4번을 `[~]`로 갱신(완료 아님, TradingView 실행 검증 미실시 명시), "알려진 단순화" 표·"다음 액션"에 재검토 트리거 추가

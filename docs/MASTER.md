@@ -16,7 +16,7 @@
 - [x] 1. `visualizer/static_chart.py`(`render_chart()`, mplfinance PNG) — §10-1-1 목업 표의 오버레이(이평선/추세선/저항·지지/박스권/거래량/캔들패턴)를 `overlays: list[str]`로 on/off. 이평선/저항·지지/박스권/거래량은 기존 core 모듈 재사용, 추세선만 신규 `core/trendline.py`(§4 `ChartAnalysis` 스키마엔 없음 — visualizer 전용 계산이라 3개 소비 프로젝트 영향 없음) 추가. 색상은 `visualizer/colors.py`에 단일 출처로 고정(스펙 §10-1-1 원칙 3 그대로)
 - [ ] 2. Alert 시스템과 이미지 첨부 연동 — 이 저장소 범위 밖(주단/코단/비단 쪽에서 `render_chart()` 호출 후 이미지 경로를 알림에 첨부하는 작업), 착수 시 각 프로젝트에서 진행
 - [x] 3. `interactive_chart.py`(plotly HTML) — `render_interactive_chart()`. static_chart.py와 동일한 `VALID_OVERLAYS`/`DEFAULT_OVERLAYS` 계약을 그대로 import해 공유(overlay 이름·기본값이 두 렌더러에서 갈라지지 않게). `visualizer/colors.py` 색상 상수도 그대로 재사용. 실 데이터(`tests/fixtures/real/kodan_BTCUSDT_60.json`)로 렌더링 후 저장된 HTML에 색상 상수·저항/지지 수치가 실제로 임베드됐는지 재확인해 STOP GATE 3 충족(정적 PNG처럼 Read로 육안 대조는 불가능해 값 대조로 대체)
-- [ ] 4. `pinescript_export`
+- [~] 4. `pinescript_export` — `generate.py`(`export_pine_script(strategy, params)`) + 템플릿 3종(`pullback.pine`/`range_box.pine`/`trendline.pine`) 구현. **TradingView Pine Editor 실행 검증 미실시**(이 환경에 브라우저/TradingView 계정이 없어 실제 컴파일 확인 불가) — 아래 "알려진 단순화"에 재검토 트리거 기록
 
 ## 확정된 설계 계약
 
@@ -69,10 +69,12 @@
 | ~~`ma_position()`이 캔들 부족 시 스펙 §4 enum에 없는 `"판단불가"`/`0.0`을 반환~~ | **해소(§8 4번)**: `analyze_and_summarize()` 진입점이 `MIN_CANDLES_REQUIRED=60 > ma_relation.DEFAULT_MA_PERIOD=20`이라 이 경로에서는 `"판단불가"`가 발생할 수 없음을 확인. `ma_position()` 자체는 여전히 반환 가능(단위테스트용) — 진입점 보장일 뿐 함수 시그니처 변경 아님 |
 | `range_compression_pct()`가 baseline 확정 봉이 `window`개 미만이면(비교 불가) 중립값 100.0(압축 아님으로 처리)을 반환 | 실 데이터 검증(§8 5번) 시 60봉 근처 종목에서 실제로 발생하는지 확인, 필요하면 폴백 값 재검토 |
 | `analyze_and_summarize()`의 resistance/support pivot 미탐지 시 현재가로 폴백 | 실 데이터 검증(§8 5번) 시 실제로 자주 발생하는지 확인 — 자주 발생하면 스펙 §4 필드를 `float`에서 `float \| None`으로 바꿀지 3개 소비 프로젝트와 논의 필요(현재는 스펙 원문이 `float`이므로 폴백으로 대응) |
+| `pinescript_export`의 `.pine` 템플릿 3종(`pullback`/`range_box`/`trendline`)은 Python 단에서 문자열 치환 로직만 단위테스트로 검증했고, 실제 TradingView Pine Editor에 붙여넣어 컴파일 성공 여부는 미확인(이 개발 환경에 TradingView 계정/브라우저 접근 수단이 없음) | 사용자가 실제로 TradingView에 붙여넣어 볼 기회가 있을 때, 또는 이 프로젝트에 브라우저 자동화 수단이 생기면 3개 템플릿 모두 실행 검증 — 특히 `range_box.pine`의 `for` 루프(`lookback - boxWindow`회 반복, 매 반복마다 `ta.highest`/`ta.lowest` 재계산)가 Pine 계산 시간 제한에 걸리는지 확인 필요 |
 
 ## 다음 액션
 
 1. 주단 실 데이터 검증 — WS 틱을 일정 시간 실제로 수집해 60봉 이상을 쌓은 뒤 `tests/fixtures/real/judan_*.json` 확보(REST 과거 조회가 없어 코단/비단과 달리 즉시 확보 불가). 이번 세션의 통합 테스트(주단 저장소 `tests/test_state_machine.py::test_chart_summary_attached_once_60_bars_accumulated`)로 실제 `Bar`→`kiwoom_adapter`→`analyze_and_summarize()` 경로 자체는 검증됐으나, 정적 fixture 커밋은 여전히 미생성
 2. 비단 어댑터 배선 — 비단이 Phase 1(실시간 스캐너 구현)을 재개하면 `chart_interpreter.adapters.bybit_adapter`를 코단과 동일한 패턴으로 연결(의존성은 2026-07-08에 이미 추가됨, `d:\www\비단_비트코인단타\docs\HISTORY.md` 참고)
-3. §10 2차 개발 계속 — `pinescript_export`(§10-3 4번, 여유 있을 때) 또는 Alert 이미지/HTML 첨부 연동(주단/코단/비단 쪽 작업, §10-3 2번) 중 다음에 진행할 항목 선택 필요. `interactive_chart.py`는 이번 세션에 완료
-4. 미니PC(`unrules-nucbox-g2`) 배포 시 설치 방식 재확인 — git 의존성(`uv add git+https://github.com/xeonix0/chartnun.git`) 방식이 주단/코단 양쪽에서 실제로 동작함을 확인(Windows Credential Manager 인증으로 비공개 저장소 clone 성공) — 미니PC(리눅스, 별도 인증 수단)에서도 동일하게 동작하는지는 실제 배포 시점에 재확인 필요. `visualizer` extra(mplfinance/plotly)를 쓰는 프로젝트가 생기면 리눅스에 한글 폰트(`fonts-noto-cjk` 등)가 설치돼 있는지도 그때 같이 확인할 것(`_KOREAN_FONT_CANDIDATES`에 `Noto Sans CJK KR` 포함해둠)
+3. `pinescript_export` TradingView 실행 검증 — 생성된 `.pine` 코드 3종을 실제 TradingView Pine Editor에 붙여넣어 컴파일 성공 여부 확인(이 환경엔 브라우저/TradingView 계정이 없어 미실시). 사용자가 직접 확인해줄 수 있으면 그 결과를 `docs/HISTORY.md`에 기록
+4. §10 남은 항목: Alert 이미지/HTML 첨부 연동(§10-3 2번)은 이 저장소 범위 밖(주단/코단/비단 쪽 작업) — §10-3 스펙상 사실상 마지막 남은 항목
+5. 미니PC(`unrules-nucbox-g2`) 배포 시 설치 방식 재확인 — git 의존성(`uv add git+https://github.com/xeonix0/chartnun.git`) 방식이 주단/코단 양쪽에서 실제로 동작함을 확인(Windows Credential Manager 인증으로 비공개 저장소 clone 성공) — 미니PC(리눅스, 별도 인증 수단)에서도 동일하게 동작하는지는 실제 배포 시점에 재확인 필요. `visualizer` extra(mplfinance/plotly)를 쓰는 프로젝트가 생기면 리눅스에 한글 폰트(`fonts-noto-cjk` 등)가 설치돼 있는지도 그때 같이 확인할 것(`_KOREAN_FONT_CANDIDATES`에 `Noto Sans CJK KR` 포함해둠)
