@@ -35,3 +35,11 @@
 - adapter 함수 시그니처 원칙 확정: 라이브러리는 소비 프로젝트의 구체 타입(주단 `Bar`, Bybit `DataFrame`)에 의존하지 않고 원시 값만 받는다 — 세부 시그니처는 §8 5번 실제 착수 시점에 확정
 - 실 데이터 검증 순서 확정: 코단/비단부터(Bybit REST로 60봉 즉시 확보 가능), 주단은 실시간 집계라 시간이 걸려 별도 트랙으로 나중에 — 스펙 §8-5의 "연동은 주단 먼저" 순서와는 별개
 - 게이트 확인: `ruff check .` / `mypy . --strict` / `pytest` 전부 통과 (23 tests)
+
+## 2026-07-08 (§8 3번 — range_box.py 구현)
+
+- `core/range_box.py` 구현: `box_bounds()`(직전 확정 `window`개 봉으로 박스 상/하단, `candles[-1]`은 pivot.py와 동일한 원칙으로 제외), `range_compression_pct()`(최근 박스폭 ÷ 직전 `lookback`개 확정 봉에서 굴린 같은 크기 박스들의 평균폭 × 100 — 스펙 §5 예시2의 "62% 수준으로 압축" 문구와 동일한 정의), `determine_range_state()`(현재가가 박스 밖이면 "박스권 이탈"을 압축 판정보다 우선 확인, 그 다음 `COMPRESSION_THRESHOLD_PCT=70.0` 이하면 "박스권 압축중", 아니면 "박스권 아님")
+- baseline 확정 봉이 `window`개 미만이면(비교 불가) 압축률을 중립값 100.0으로 반환 — 침묵 실패 대신 "압축 아님"으로 명시적 처리(`docs/MASTER.md` 알려진 단순화 표에 §8 5번 실 데이터 검증 시 재검토 트리거로 기록)
+- summarizer(`build_partial_summary`) 연동은 하지 않음 — pivot.py/ma_relation.py가 §8 1번에서 그랬듯, volume_filter/candle_pattern까지 갖춰진 뒤(§8 4번 완료) `analyze_and_summarize()`/`ChartAnalysis` 전체 조립 시 한 번에 연결하기로 한 기존 결정 유지
+- 테스트 7건 추가(`tests/test_range_box.py`) — 박스 경계가 미확정 마지막 봉을 제외하는지, 압축/이탈(상단·하단)/비압축 3가지 상태 판정, baseline 부족 시 중립값 반환. 합성 데이터만 사용 — STOP GATE 3 실 데이터 육안 대조는 여전히 미실시
+- 게이트 확인: `ruff check .` / `mypy . --strict` / `pytest` 전부 통과 (30 tests)

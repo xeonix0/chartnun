@@ -7,7 +7,7 @@
 - [x] 1. `pivot.py` — 고점/저점 탐지 + 지지/저항 거리(`price_distance_pct`) + 추세 판단(`determine_trend_direction`)
 - [x] 1. `ma_relation.py` — EMA 계산 + 이평선 대비 위치/거리(`ma_position`)
 - [x] 2. `summarizer` 1차 템플릿 — `templates.py` + `build_summary.build_partial_summary()`. pivot/ma_relation 두 모듈로 만들 수 있는 추세·위치 문장만 조합 (거래량/패턴/박스권 문장은 3·4번 완료 후 `analyze_and_summarize()`/`ChartAnalysis` 전체 조립 때 추가)
-- [ ] 3. `range_box.py` — 박스권 압축/돌파 (미착수)
+- [x] 3. `range_box.py` — `box_bounds`(직전 확정 window개 봉으로 박스 경계) + `range_compression_pct`(최근 박스 대비 lookback 구간 평균 박스폭 비율) + `determine_range_state`(압축중/이탈/아님 판정). summarizer 연동은 아직 안 함 — pivot/ma_relation과 동일하게 §8 4번 완료 후 `analyze_and_summarize()` 조립 시 한 번에 연결
 - [ ] 4. `volume_filter.py` + `candle_pattern.py` (미착수)
 - [ ] 5. 주단 연동 테스트 → 코단/비단 순차 확장 (미착수 — `adapters/kiwoom_adapter.py`, `bybit_adapter.py`도 아직 빈 상태)
 
@@ -28,6 +28,8 @@
 | 타입 배포 | `py.typed` 마커 포함, `uv build` wheel에 포함 확인 완료 — 소비 프로젝트 `mypy --strict`가 stub 누락으로 안 막힘 | `src/chart_interpreter/py.typed` |
 | 시각화 색상 | 상승/롱=초록, 하락/숏=빨강, 이평선=파랑, 추세선=주황, 지지/저항=자주색, 박스권=보라 (스펙 §10-1-1 기준으로 확정, CLAUDE.md 표 수정 완료) | `CLAUDE.md` 단일 출처 맵 |
 | 실 데이터 검증 fixture | `tests/fixtures/real/{project}_{symbol}_{timeframe}.json` — 소비 프로젝트에서 1회 export한 정적 스냅샷을 커밋. 라이브러리가 거래소 API를 직접 호출하지 않는다는 원칙과 재현 가능성을 동시에 만족하는 가장 단순한 방법이라 이걸로 확정. 실제 export는 §8 우선순위 5번(연동 시점)에 진행 | 미생성 |
+| `range_box.py` 박스 경계 기준 | pivot.py와 동일한 원칙 — `candles[-1]`(진행 중일 수 있는 현재 봉)은 박스 계산에서 제외하고 직전 확정 `window`(기본 20)개 봉으로만 박스 상/하단을 정의. 현재가(`candles[-1].close`)는 이 박스와 비교해 이탈 여부만 판정 | `core/range_box.py` |
+| `range_box.py` 압축률 계산 | 최근 박스폭 ÷ 직전 `lookback`(기본 60)개 확정 봉 구간에서 굴린 같은 크기 박스들의 평균폭 × 100. `COMPRESSION_THRESHOLD_PCT=70.0` 이하면 "박스권 압축중". 이탈(현재가가 박스 밖) 체크가 압축 판정보다 우선 | `core/range_box.py` |
 
 ## 소비 프로젝트 실제 데이터 포맷 (2026-07-08 조사)
 
@@ -46,10 +48,10 @@
 |---|---|
 | `ma_position()`의 `"이평선 위 눌림"` 라벨은 이평선 대비 위/아래만 반영, 실제 눌림목 판단엔 추세 컨텍스트 필요 | `summarizer` 착수 시(§8 2번) `pivot.determine_trend_direction()`과 조합해 게이팅 |
 | `ma_position()`이 캔들 부족 시 스펙 §4 enum에 없는 `"판단불가"`/`0.0`을 반환 | `analyze_and_summarize()`/`ChartAnalysis` 전체 조립 시(§8 4번 완료 후) 특별 처리 반영 |
+| `range_compression_pct()`가 baseline 확정 봉이 `window`개 미만이면(비교 불가) 중립값 100.0(압축 아님으로 처리)을 반환 | 실 데이터 검증(§8 5번) 시 60봉 근처 종목에서 실제로 발생하는지 확인, 필요하면 폴백 값 재검토 |
 
 ## 다음 액션 (§8 순서)
 
-1. `range_box.py` — 박스권 압축/돌파 (§8 3번)
-2. `volume_filter.py` + `candle_pattern.py` (§8 4번) — 완료 후 `analyze_and_summarize()`/`ChartAnalysis` 전체 조립
-3. `adapters/kiwoom_adapter.py`·`bybit_adapter.py` — "소비 프로젝트 실제 데이터 포맷" 표 + "adapter 함수 시그니처 원칙" 기준 구현
-4. STOP GATE 3: 코단/비단 실 데이터로 `pivot.py`/`ma_relation.py`/`build_partial_summary()` 결과 육안 대조 검증, `tests/fixtures/real/` 스냅샷 확보
+1. `volume_filter.py` + `candle_pattern.py` (§8 4번) — 완료 후 `analyze_and_summarize()`/`ChartAnalysis` 전체 조립
+2. `adapters/kiwoom_adapter.py`·`bybit_adapter.py` — "소비 프로젝트 실제 데이터 포맷" 표 + "adapter 함수 시그니처 원칙" 기준 구현
+3. STOP GATE 3: 코단/비단 실 데이터로 `pivot.py`/`ma_relation.py`/`range_box.py`/`build_partial_summary()` 결과 육안 대조 검증, `tests/fixtures/real/` 스냅샷 확보
