@@ -7,9 +7,9 @@
 - [x] 1. `pivot.py` — 고점/저점 탐지 + 지지/저항 거리(`price_distance_pct`) + 추세 판단(`determine_trend_direction`)
 - [x] 1. `ma_relation.py` — EMA 계산 + 이평선 대비 위치/거리(`ma_position`)
 - [x] 2. `summarizer` 1차 템플릿 — `templates.py` + `build_summary.build_partial_summary()`. pivot/ma_relation 두 모듈로 만들 수 있는 추세·위치 문장만 조합 (거래량/패턴/박스권 문장은 3·4번 완료 후 `analyze_and_summarize()`/`ChartAnalysis` 전체 조립 때 추가)
-- [x] 3. `range_box.py` — `box_bounds`(직전 확정 window개 봉으로 박스 경계) + `range_compression_pct`(최근 박스 대비 lookback 구간 평균 박스폭 비율) + `determine_range_state`(압축중/이탈/아님 판정). summarizer 연동은 아직 안 함 — pivot/ma_relation과 동일하게 §8 4번 완료 후 `analyze_and_summarize()` 조립 시 한 번에 연결
-- [ ] 4. `volume_filter.py` + `candle_pattern.py` (미착수)
-- [ ] 5. 주단 연동 테스트 → 코단/비단 순차 확장 (미착수 — `adapters/kiwoom_adapter.py`, `bybit_adapter.py`도 아직 빈 상태)
+- [x] 3. `range_box.py` — `box_bounds`(직전 확정 window개 봉으로 박스 경계) + `range_compression_pct`(최근 박스 대비 lookback 구간 평균 박스폭 비율) + `determine_range_state`(압축중/이탈/아님 판정)
+- [x] 4. `volume_filter.py`(`average_volume`/`volume_ratio`, candles[-1] 진행 중 봉 제외 원칙은 range_box와 동일) + `candle_pattern.py`(`detect_candle_pattern` — candles[-3]/[-2] 몸통 기준 장악형 판정) 구현. 이 두 모듈 완료를 계기로 `summarizer/build_summary.py`의 `build_partial_summary()`를 스펙 §7 진입점 이름 그대로인 `analyze_and_summarize()`로 교체 — pivot/ma_relation/range_box/volume_filter/candle_pattern 5개 core 모듈 전체를 `ChartAnalysis`로 조립하고 스펙 5장 5문장(추세/위치/거래량/패턴/종합)을 모두 생성
+- [~] 5. `adapters/bybit_adapter.py`(코단/비단 공용) + `adapters/kiwoom_adapter.py`(주단) 구현 완료. Bybit는 실제 공개 API(`GET /v5/market/kline`, 인증 불필요)로 BTCUSDT 1H/5m 실 데이터를 받아 `analyze_and_summarize()`까지 전체 파이프라인 실행 검증 완료(`tests/fixtures/real/kodan_BTCUSDT_60.json`, `bidan_BTCUSDT_5.json`). **미완료로 남은 것**: (1) 주단은 REST 과거 조회 자체가 없어(WS 실시간 집계만 존재) 이 세션에서 실 데이터 fixture를 만들 수 없었음 — kiwoom_adapter는 스펙대로 구현했지만 검증은 합성 데이터 단위테스트뿐, (2) 스펙 §8-5가 말하는 "주단/코단/비단 연동"은 각 소비 프로젝트 저장소(`d:\www\주단-주식단타` 등)의 스캐너 코드에 이 라이브러리를 실제로 의존성 추가해 import하는 작업인데, 이는 이 저장소 범위 밖이라 착수 안 함 — 사용자 확인 필요
 
 ## 확정된 설계 계약
 
@@ -23,13 +23,17 @@
 | `ChartInput.candles` 마지막 원소 | 미확정(진행 중) 캔들일 수 있음 — "현재가"로만 사용. `pivot.py`는 구조상 이미 안전(마지막 `right_bars`개는 pivot 후보 제외). `candle_pattern.py`는 "직전 확정 봉"을 `candles[-2]` 기준으로 판정 | `schema.py` docstring |
 | 캔들 수 부족 신호 | 전용 예외 `InsufficientCandlesError(symbol, timeframe, have, need)`, `MIN_CANDLES_REQUIRED=60`. `build_partial_summary()` 진입부에서 이미 raise. 주단은 장 시작 직후 상시 발생 — 3개 소비 프로젝트 모두 try/except로 스캔 스킵 처리 필요 | `errors.py` + `summarizer/build_summary.py` |
 | pivot 타이(동률) 처리 | 구간 내 최고/최저가가 2개 이상 캔들에 동시에 나타나면(완전 평탄 구간 등) pivot 후보에서 제외 — 유일한 최댓값/최솟값일 때만 pivot으로 인정 | `core/pivot.py` |
-| adapter 함수 시그니처 원칙 | 라이브러리는 소비 프로젝트의 구체 타입(주단 `Bar`, 코단/비단 `pandas.DataFrame`)에 의존하지 않는다 — adapter 함수는 원시 값(수/문자열/딕셔너리)만 받는다. 정확한 파라미터 형태는 §8 5번(실제 착수 시점)에 확정 | `adapters/*.py` (미착수) |
-| 실 데이터 검증 순서 | STOP GATE 3 검증은 **코단/비단부터** 진행 — Bybit REST `get_kline()`으로 60봉 이상을 즉시 받을 수 있어 fixture 확보가 빠름. 주단은 실시간 WS 집계라 60봉 쌓는 데 시간이 걸려 adapter 실제 연동 시점(§8 5번)에 별도 처리. "검증 순서"이지 스펙 §8-5의 "연동 순서(주단 먼저)"를 바꾸는 게 아님 — 두 트랙은 별개 | 미착수 |
+| adapter 함수 시그니처 원칙 | 라이브러리는 소비 프로젝트의 구체 타입(주단 `Bar`, 코단/비단 `pandas.DataFrame`)에 의존하지 않는다 — 확정된 형태: `bybit_adapter.to_chart_input(rows: list[tuple[int,float,float,float,float,float]], ...)`, `kiwoom_adapter.to_chart_input(bars: list[tuple[datetime,int,int,int,int,int]], ...)`. 소비 프로젝트는 `DataFrame`/`Bar` 인스턴스를 이 튜플 형태로 변환해서 넘긴다(`zip(df["timestamp"], df["open"], ...)` 등) | `adapters/*.py` |
+| 실 데이터 검증 순서 | STOP GATE 3 검증은 **코단/비단부터** 진행 — Bybit 공개 API(`GET /v5/market/kline`, 인증 불필요)로 BTCUSDT 1H/5m 100봉을 즉시 받아 `analyze_and_summarize()` 전체 파이프라인 실행 후 pivot/volume_ratio 값을 원본 캔들과 재대조해 확인 완료(§8 5번). 주단은 REST 과거 조회 자체가 없어(WS 실시간 집계만 존재) 이 방식의 실 데이터 검증이 불가능 — kiwoom_adapter는 합성 데이터 단위테스트로만 검증된 상태로 남음. 시각적 캔들차트 대조(CLAUDE.md STOP GATE 3 원칙)는 `visualizer/`(스펙 §10, 2차 개발)가 아직 없어 수치 재계산 대조로 대체함 | `tests/fixtures/real/kodan_BTCUSDT_60.json`, `bidan_BTCUSDT_5.json` |
 | 타입 배포 | `py.typed` 마커 포함, `uv build` wheel에 포함 확인 완료 — 소비 프로젝트 `mypy --strict`가 stub 누락으로 안 막힘 | `src/chart_interpreter/py.typed` |
 | 시각화 색상 | 상승/롱=초록, 하락/숏=빨강, 이평선=파랑, 추세선=주황, 지지/저항=자주색, 박스권=보라 (스펙 §10-1-1 기준으로 확정, CLAUDE.md 표 수정 완료) | `CLAUDE.md` 단일 출처 맵 |
-| 실 데이터 검증 fixture | `tests/fixtures/real/{project}_{symbol}_{timeframe}.json` — 소비 프로젝트에서 1회 export한 정적 스냅샷을 커밋. 라이브러리가 거래소 API를 직접 호출하지 않는다는 원칙과 재현 가능성을 동시에 만족하는 가장 단순한 방법이라 이걸로 확정. 실제 export는 §8 우선순위 5번(연동 시점)에 진행 | 미생성 |
+| 실 데이터 검증 fixture | `tests/fixtures/real/{project}_{symbol}_{timeframe}.json` — 정적 스냅샷을 커밋. 코단/비단은 Bybit 공개 API를 1회 호출해 직접 확보(라이브러리 코드 자체는 API를 호출하지 않음, 이 fixture 생성 스크립트는 일회성 개발 도구일 뿐). 주단은 REST 과거 조회가 없어 아직 미생성 | `kodan_BTCUSDT_60.json`, `bidan_BTCUSDT_5.json` 생성 완료. 주단용은 미생성 |
 | `range_box.py` 박스 경계 기준 | pivot.py와 동일한 원칙 — `candles[-1]`(진행 중일 수 있는 현재 봉)은 박스 계산에서 제외하고 직전 확정 `window`(기본 20)개 봉으로만 박스 상/하단을 정의. 현재가(`candles[-1].close`)는 이 박스와 비교해 이탈 여부만 판정 | `core/range_box.py` |
 | `range_box.py` 압축률 계산 | 최근 박스폭 ÷ 직전 `lookback`(기본 60)개 확정 봉 구간에서 굴린 같은 크기 박스들의 평균폭 × 100. `COMPRESSION_THRESHOLD_PCT=70.0` 이하면 "박스권 압축중". 이탈(현재가가 박스 밖) 체크가 압축 판정보다 우선 | `core/range_box.py` |
+| `volume_filter.py` 거래량 배율 계산 | 분자는 `candles[-1].volume`(진행 중일 수 있는 현재 봉 그대로 사용 — range_box처럼 "현재가"를 박스 밖 이탈 판정에 쓰는 것과 동일한 원칙), 분모는 그 직전 확정 `window`(기본 20)개 봉의 평균 거래량. 분모가 0(거래정지 등)이면 중립값 0.0 | `core/volume_filter.py` |
+| `candle_pattern.py` 장악형 판정 | `candles[-2]`(직전 확정 봉)와 `candles[-3]`(그 이전 확정 봉)의 시가/종가 몸통만으로 판정 — `candles[-1]`은 진행 중일 수 있어 제외(schema.py 불변식 그대로 적용). 몸통이 완전히 감싸야("상승장악형"/"하락장악형") 인정, 꼬리(고가/저가)는 보지 않음 | `core/candle_pattern.py` |
+| `analyze_and_summarize()`의 resistance/support pivot 미탐지 폴백 | `ChartAnalysis.resistance_price`/`support_price`가 스펙상 `float`(Optional 아님)이므로, pivot이 하나도 없으면(완전 평탄 구간 등) 현재가(`candles[-1].close`)를 그대로 채우고 거리는 0.0으로 채운다. `trend_sentence()`는 이 폴백과 별개로 원본 `pivot_high`/`pivot_low`(`None` 가능)를 그대로 받아 "탐지되지 않았습니다"를 명시 — 폴백 때문에 "탐지 안 됨" 사실이 요약 문장에서 가려지지 않게 함 | `summarizer/build_summary.py` |
+| 최종 한 줄 요약(`final_summary_sentence`) | 스펙 §6-5 "조건 늘리며 확장" 원칙대로 지금은 규칙 기반 MVP(패턴+고거래량 → 박스권 이탈 → 박스권 압축중 → 상승눌림/하락지속 → 기본 문구 순으로 우선순위 판정). 조건 추가는 항상 이 함수에서만 | `summarizer/templates.py` |
 
 ## 소비 프로젝트 실제 데이터 포맷 (2026-07-08 조사)
 
@@ -46,12 +50,13 @@
 
 | 단순화 | 트리거(언제 다룰지) |
 |---|---|
-| `ma_position()`의 `"이평선 위 눌림"` 라벨은 이평선 대비 위/아래만 반영, 실제 눌림목 판단엔 추세 컨텍스트 필요 | `summarizer` 착수 시(§8 2번) `pivot.determine_trend_direction()`과 조합해 게이팅 |
-| `ma_position()`이 캔들 부족 시 스펙 §4 enum에 없는 `"판단불가"`/`0.0`을 반환 | `analyze_and_summarize()`/`ChartAnalysis` 전체 조립 시(§8 4번 완료 후) 특별 처리 반영 |
+| `ma_position()`의 `"이평선 위 눌림"` 라벨은 이평선 대비 위/아래만 반영, 실제 눌림목 판단엔 추세 컨텍스트 필요 | `final_summary_sentence()`가 `trend_direction`과 `ma_position`을 함께 받아 "상승 추세 + 이평선 위 눌림"일 때만 눌림목으로 조합 — §8 4번 완료 시 반영됨 |
+| ~~`ma_position()`이 캔들 부족 시 스펙 §4 enum에 없는 `"판단불가"`/`0.0`을 반환~~ | **해소(§8 4번)**: `analyze_and_summarize()` 진입점이 `MIN_CANDLES_REQUIRED=60 > ma_relation.DEFAULT_MA_PERIOD=20`이라 이 경로에서는 `"판단불가"`가 발생할 수 없음을 확인. `ma_position()` 자체는 여전히 반환 가능(단위테스트용) — 진입점 보장일 뿐 함수 시그니처 변경 아님 |
 | `range_compression_pct()`가 baseline 확정 봉이 `window`개 미만이면(비교 불가) 중립값 100.0(압축 아님으로 처리)을 반환 | 실 데이터 검증(§8 5번) 시 60봉 근처 종목에서 실제로 발생하는지 확인, 필요하면 폴백 값 재검토 |
+| `analyze_and_summarize()`의 resistance/support pivot 미탐지 시 현재가로 폴백 | 실 데이터 검증(§8 5번) 시 실제로 자주 발생하는지 확인 — 자주 발생하면 스펙 §4 필드를 `float`에서 `float \| None`으로 바꿀지 3개 소비 프로젝트와 논의 필요(현재는 스펙 원문이 `float`이므로 폴백으로 대응) |
 
 ## 다음 액션 (§8 순서)
 
-1. `volume_filter.py` + `candle_pattern.py` (§8 4번) — 완료 후 `analyze_and_summarize()`/`ChartAnalysis` 전체 조립
-2. `adapters/kiwoom_adapter.py`·`bybit_adapter.py` — "소비 프로젝트 실제 데이터 포맷" 표 + "adapter 함수 시그니처 원칙" 기준 구현
-3. STOP GATE 3: 코단/비단 실 데이터로 `pivot.py`/`ma_relation.py`/`range_box.py`/`build_partial_summary()` 결과 육안 대조 검증, `tests/fixtures/real/` 스냅샷 확보
+1. 주단 실 데이터 검증 — WS 틱을 일정 시간 실제로 수집해 60봉 이상을 쌓은 뒤 `tests/fixtures/real/judan_*.json` 확보(REST 과거 조회가 없어 코단/비단과 달리 즉시 확보 불가)
+2. 3개 소비 프로젝트 저장소에 실제 통합 — `주단-주식단타`/`코단-코인단타`/`비단_비트코인단타`의 스캐너 코드에 이 라이브러리를 의존성으로 추가하고 adapter를 실제로 호출하도록 연결(각 프로젝트 저장소 수정 필요, 사용자 확인 후 진행)
+3. 2차 개발(§10) — `visualizer/static_chart.py` 등: 지금까지의 수치 재계산 대조를 실제 캔들차트 육안 대조로 대체
