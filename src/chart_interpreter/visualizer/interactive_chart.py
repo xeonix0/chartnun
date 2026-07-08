@@ -17,14 +17,18 @@ from chart_interpreter.visualizer.colors import (
 from chart_interpreter.visualizer.static_chart import DEFAULT_OVERLAYS, VALID_OVERLAYS
 
 
-def render_interactive_chart(
+def build_figure(
     chart_input: ChartInput,
     analysis: ChartAnalysis,
-    save_dir: str,
     overlays: list[str] | None = None,
-) -> str:
-    """core 모듈이 계산한 이평선/추세선/저항·지지/박스권/거래량을 캔들차트 위에 오버레이해
-    plotly HTML로 저장하고 저장 경로를 반환한다.
+) -> go.Figure:
+    """core 모듈이 계산한 이평선/추세선/저항·지지/박스권/거래량을 캔들차트 위에 오버레이한
+    plotly Figure를 파일로 저장하지 않고 그대로 반환한다.
+
+    소비 프로젝트가 자체 UI(예: Streamlit `st.plotly_chart()`)에 직접 임베드하고 싶을 때
+    쓴다 — `render_interactive_chart()`는 이 함수로 만든 Figure를 HTML로 저장하는 얇은
+    래퍼일 뿐이라, 파일 저장이 필요 없는 소비처는 이 함수를 바로 써야 한다(디스크 I/O·
+    임시 파일 경로 관리가 불필요해짐).
 
     overlays 계약(VALID_OVERLAYS/DEFAULT_OVERLAYS)은 static_chart.render_chart()와 공유한다 —
     "확대해서 보고 싶을 때" 선택적으로 쓰는 대체 렌더러일 뿐(스펙 §10-3 3번), 어떤 요소를
@@ -180,8 +184,22 @@ def render_interactive_chart(
         legend={"orientation": "h"},
     )
 
+    return fig
+
+
+def render_interactive_chart(
+    chart_input: ChartInput,
+    analysis: ChartAnalysis,
+    save_dir: str,
+    overlays: list[str] | None = None,
+) -> str:
+    """build_figure()로 만든 Figure를 plotly HTML로 저장하고 저장 경로를 반환한다."""
+    fig = build_figure(chart_input, analysis, overlays)
+
     os.makedirs(save_dir, exist_ok=True)
-    filename = f"{chart_input.symbol}_{chart_input.timeframe}_{candles[-1].timestamp}.html"
+    filename = (
+        f"{chart_input.symbol}_{chart_input.timeframe}_{chart_input.candles[-1].timestamp}.html"
+    )
     save_path = os.path.join(save_dir, filename)
     fig.write_html(save_path)
     return save_path

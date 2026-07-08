@@ -25,3 +25,14 @@ from chart_interpreter.summarizer.build_summary import analyze_and_summarize
 chart_input = to_chart_input(kiwoom_ohlcv_data, symbol="005930", timeframe="1D")
 analysis, summary_text = analyze_and_summarize(chart_input)
 ```
+
+## 단독 실행 데모
+
+소비 프로젝트(주단/코단/비단) 없이 이 저장소 안에서 실 데이터로 요약 문장 + 차트 이미지를 바로 확인할 수 있다.
+
+```bash
+uv sync
+uv run python scripts/demo_render_chart.py
+```
+
+`tests/fixtures/real/kodan_BTCUSDT_60.json`을 읽어 `analyze_and_summarize()` → `render_chart()`/`render_interactive_chart()`를 실행하고, 생성된 PNG/HTML 경로를 출력한다(`output/demo/`, git 추적 제외).

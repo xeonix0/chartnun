@@ -71,6 +71,10 @@
 | `analyze_and_summarize()`의 resistance/support pivot 미탐지 시 현재가로 폴백 | 실 데이터 검증(§8 5번) 시 실제로 자주 발생하는지 확인 — 자주 발생하면 스펙 §4 필드를 `float`에서 `float \| None`으로 바꿀지 3개 소비 프로젝트와 논의 필요(현재는 스펙 원문이 `float`이므로 폴백으로 대응) |
 | `pinescript_export`의 `.pine` 템플릿 3종(`pullback`/`range_box`/`trendline`)은 Python 단에서 문자열 치환 로직만 단위테스트로 검증했고, 실제 TradingView Pine Editor에 붙여넣어 컴파일 성공 여부는 미확인(이 개발 환경에 TradingView 계정/브라우저 접근 수단이 없음) | 사용자가 실제로 TradingView에 붙여넣어 볼 기회가 있을 때, 또는 이 프로젝트에 브라우저 자동화 수단이 생기면 3개 템플릿 모두 실행 검증 — 특히 `range_box.pine`의 `for` 루프(`lookback - boxWindow`회 반복, 매 반복마다 `ta.highest`/`ta.lowest` 재계산)가 Pine 계산 시간 제한에 걸리는지 확인 필요 |
 
+## 단독 실행 데모
+
+`scripts/demo_render_chart.py` — 소비 프로젝트 없이 이 저장소 안에서 실 데이터(`tests/fixtures/real/kodan_BTCUSDT_60.json`)로 `analyze_and_summarize()` → `render_chart()`/`render_interactive_chart()` 전체 파이프라인을 실행해 PNG/HTML을 생성하는 데모 스크립트(`uv run python scripts/demo_render_chart.py`). 라이브러리 코드는 건드리지 않고 사용법만 보여줌 — output/demo/에 저장, git 추적 제외(`.gitignore`). Windows 콘솔 기본 코드페이지(cp949)가 요약 문장의 일부 문자를 인코딩 못 해 죽는 문제를 스크립트 내부에서 `sys.stdout.reconfigure(encoding="utf-8")`로 흡수(mypy strict 통과를 위해 `isinstance(..., io.TextIOWrapper)`로 타입 좁힘). 생성된 PNG를 육안 대조해 색상(양봉초록/음봉빨강/이평선파랑/추세선주황/저항지지자주/박스보라)·저항선(64,234.0)·지지선(62,635.5) 값이 요약 문장과 일치함을 확인(STOP GATE 3)
+
 ## 다음 액션
 
 1. 주단 실 데이터 검증 — WS 틱을 일정 시간 실제로 수집해 60봉 이상을 쌓은 뒤 `tests/fixtures/real/judan_*.json` 확보(REST 과거 조회가 없어 코단/비단과 달리 즉시 확보 불가). 이번 세션의 통합 테스트(주단 저장소 `tests/test_state_machine.py::test_chart_summary_attached_once_60_bars_accumulated`)로 실제 `Bar`→`kiwoom_adapter`→`analyze_and_summarize()` 경로 자체는 검증됐으나, 정적 fixture 커밋은 여전히 미생성

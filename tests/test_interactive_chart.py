@@ -4,7 +4,7 @@ import pytest
 
 from chart_interpreter.schema import Candle, ChartInput
 from chart_interpreter.summarizer.build_summary import analyze_and_summarize
-from chart_interpreter.visualizer.interactive_chart import render_interactive_chart
+from chart_interpreter.visualizer.interactive_chart import build_figure, render_interactive_chart
 
 
 def make_uptrend_candles(n: int) -> list[Candle]:
@@ -97,6 +97,27 @@ def test_render_interactive_chart_candle_pattern_overlay_only_produces_file(
     )
 
     assert os.path.exists(save_path)
+
+
+def test_build_figure_returns_figure_without_writing_file(tmp_path: object) -> None:
+    """render_interactive_chart()와 달리 파일을 저장하지 않고 Figure 객체를 바로 반환해야
+    한다 — Streamlit 등 소비 프로젝트 자체 UI에 st.plotly_chart(fig)로 직접 임베드하는
+    용도(디스크 I/O 없이)."""
+    chart_input = ChartInput(symbol="005930", timeframe="1D", candles=make_uptrend_candles(65))
+    analysis, _ = analyze_and_summarize(chart_input)
+
+    fig = build_figure(chart_input, analysis)
+
+    assert fig.data
+    assert os.listdir(str(tmp_path)) == []
+
+
+def test_build_figure_rejects_unknown_overlay() -> None:
+    chart_input = ChartInput(symbol="005930", timeframe="1D", candles=make_uptrend_candles(65))
+    analysis, _ = analyze_and_summarize(chart_input)
+
+    with pytest.raises(ValueError):
+        build_figure(chart_input, analysis, overlays=["존재하지않음"])
 
 
 def test_render_interactive_chart_all_overlays_together_produces_file(tmp_path: object) -> None:

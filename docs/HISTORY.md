@@ -125,3 +125,13 @@
 - **STOP GATE 3 한계 명시**: 이 기능은 스펙상 "TradingView Pine Editor에 붙여넣어 확인"하는 용도인데, 이 개발 환경엔 브라우저/TradingView 계정이 없어 생성된 `.pine` 코드가 실제로 Pine v6 컴파일러를 통과하는지는 검증하지 못함. Python 문자열 치환 로직(단위테스트)과 각 `.pine` 템플릿의 Pine v6 문법·`core/` 대응 로직과의 1:1 대조(수작업 리뷰)까지만 확인 — "완성" 대신 `docs/MASTER.md`에 `[~]`(부분 완료)로 기록하고 실행 검증 필요 항목으로 다음 액션에 남김. 특히 `range_box.pine`의 `for` 루프(매 반복 `ta.highest`/`ta.lowest` 재계산)가 Pine 계산 시간 제한에 걸릴 가능성은 실제 TradingView 환경에서만 확인 가능
 - 게이트 확인: `ruff check .` / `mypy . --strict` / `pytest` 전부 통과 (76 tests, 신규 5건). `ruff`에서 `generate.py`의 f-string 라인이 100자 초과로 걸린 것을 줄바꿈으로 수정
 - `docs/MASTER.md` §10-3 4번을 `[~]`로 갱신(완료 아님, TradingView 실행 검증 미실시 명시), "알려진 단순화" 표·"다음 액션"에 재검토 트리거 추가
+
+## 2026-07-08 (단독 실행 데모 스크립트 추가)
+
+- `상태 확인` 결과 §8/§10-3 모두 이 저장소 안에서 코드로 진행 가능한 항목이 없음(남은 "다음 액션" 5개는 전부 다른 저장소의 실시간 데이터·진행 상황·외부 환경(TradingView 브라우저)에 막혀 이 세션에서 착수 불가) — 사용자에게 확인한 결과 "소비 프로젝트 없이 찰눈 단독으로 차트를 볼 수 있는 기능이 있는지" 확인 후, 없으면 그런 데모를 추가하기로 확정
+- 조사 결과 `render_chart()`/`render_interactive_chart()`는 이미 라이브러리 함수로 존재하고 pytest 안에서 실 데이터로 호출되고 있었지만, 사람이 바로 실행해서 결과물을 볼 수 있는 CLI/스크립트는 없었음 — `scripts/demo_render_chart.py` 신규 추가(라이브러리 코드 `src/chart_interpreter/`는 건드리지 않음). `tests/fixtures/real/kodan_BTCUSDT_60.json`을 읽어 `bybit_adapter.to_chart_input()` → `analyze_and_summarize()` → `render_chart()`/`render_interactive_chart()`(overlays 전체 on)까지 실행하고 요약 문장 + PNG/HTML 경로를 stdout에 출력
+- 실행 중 실제 버그 발견·수정: Windows 콘솔 기본 코드페이지(cp949)가 요약 문장의 em dash(`—`) 등 일부 문자를 인코딩 못 해 `UnicodeEncodeError`로 죽음 — `sys.stdout.reconfigure(encoding="utf-8")`로 흡수. `mypy --strict`가 `sys.stdout`(`TextIO`) 타입엔 `reconfigure`가 없다고 잡아내서(`Any` 남발 금지 원칙에 따라 `# type: ignore` 대신) `isinstance(sys.stdout, io.TextIOWrapper)`로 타입을 좁혀 해결
+- `output/` 디렉터리를 `.gitignore`에 추가(생성되는 PNG/HTML은 데모 산출물일 뿐 커밋 대상 아님)
+- **STOP GATE 3 육안 대조**: 생성된 PNG를 Read 도구로 직접 열어 확인 — 양봉/음봉 초록/빨강, EMA20 파랑, 추세선 주황 점선(실제 하락 추세 구간에서 우하향), 저항/지지 자주색 점선, 박스권 보라색이 스펙 §10-1-1 색상 규칙대로 나타남을 확인. 차트에 그려진 저항선(~64,234)·지지선(~62,635.5) 위치가 동시에 출력된 요약 문장의 수치("저항선(64,234.0)까지 +2.27%, 지지선(62,635.5)까지 -0.27%")와 정확히 일치함을 대조(§10-1-1 원칙 2 "그래프 단독으로 끝내지 않는다" 재확인). HTML은 grep으로 동일 수치(`64234`, `62635.5`)와 색상 상수(`#8E24AA`, `#EF6C00`)가 임베드됐는지 재확인
+- 게이트 확인: `ruff check .` / `mypy . --strict` / `pytest` 전부 통과 (76 tests, 신규 테스트 없음 — 데모 스크립트는 라이브러리 API 사용 예시일 뿐 테스트 대상 아님)
+- `docs/MASTER.md`에 "단독 실행 데모" 섹션 신규 추가, `README.md`에 실행법 추가. 코드 변경은 `scripts/`·`.gitignore`·문서뿐 — `src/chart_interpreter/` 불변식 그대로 유지(기존 76개 테스트 회귀 없음)
