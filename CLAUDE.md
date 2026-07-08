@@ -28,6 +28,7 @@
 | 빈껍데기 패턴 (pass·TODO만 있는 함수) | 실제 구현 or 미구현 명시 후 이슈 등록 |
 | 가격 수치를 요약/시각화 과정에서 임의 반올림 | 저가 알트/소수점 종목은 유효숫자 소실 시 손절가 판단 오류로 직결 — 원본 정밀도 유지 |
 | 2차 개발(visualizer) 착수 전 core/summarizer 미완성 상태로 진행 | §8 우선순위(1→5) 순서 준수, PROJECT.md 로드맵 이탈 금지 |
+| 커밋이 하네스에 "Credential Leakage" 등으로 자동 차단되면 `--no-verify`로 우회 | 우회 금지. `git diff --cached --name-only`로 민감 파일 미포함 확인 → `git check-ignore -v <파일>`로 `.gitignore` 적용 여부 확인 → `(api[_-]?key\|api[_-]?secret\|token\|password\|secret)[:=]` 패턴으로 staged diff 재검색 → 결과를 사용자에게 투명 보고 후 명시적 승인 받고 재시도 (코단에서 실제 발생·해결한 절차, `d:\www\코단-코인단타\docs\HISTORY.md` 2026-07-06 "미니PC 배포 착수" 항목 참고) |
 
 ## 실수 예방 운영 원칙
 
@@ -152,9 +153,11 @@ core 모듈 1개 단위 (예: pivot.py+ma_relation.py 완료) 완료마다 → /
 
 - **Python 실행**: (미정 — 주단/코단과 통일해 `uv` 유력)
 - **게이트**: `ruff check . && mypy . --strict && pytest`
-- **의존성 관리**: (미정 — `uv` 권장, 주단/코단과 통일하면 3개 프로젝트가 이 라이브러리를 로컬 경로/git 서브모듈로 붙일 때 마찰이 적음)
+- **의존성 관리**: `uv` (주단/코단/비단 전부 동일)
 - **커밋 컨벤션**: `feat / fix / refactor / docs / chore / test`
-- **소비 방식**: 현재는 "라이브러리 형태로 import"만 정의됨 (스펙 §7). PyPI 배포 여부·버전 고정 방식은 미정 — 3개 프로젝트가 실제로 붙는 시점에 결정
+- **소비 방식 (2026-07-08 확정)**: git 의존성 — 3개 소비 프로젝트 모두 `uv add git+https://github.com/xeonix0/chartnun.git`로 추가한다. 로컬 경로 의존성은 미니PC 등 다른 머신에서 절대경로가 다르므로 배제. 주단/코단은 이미 이 방식으로 실제 연결 완료(`docs/MASTER.md` §8 5번), 비단은 의존성만 추가하고 어댑터 배선은 Phase 1 재개 시점으로 이월. PyPI 배포는 여전히 하지 않음 — git 의존성으로 충분함이 실증됨
+- **GitHub**: 저장소 `xeonix0/chartnun`(origin, HTTPS). git 사용자 아이덴티티는 이 저장소에 **로컬로만**(전역 아님) `user.name=xeonix0`/`user.email=xeonix0@gmail.com` 설정됨(코단·주단과 동일 관례). `gh` CLI는 2026-07-08 winget 설치 + device-code 로그인으로 `xeonix0` 계정 인증까지 완료했으나, **새 터미널 세션에선 PATH에 안 잡힐 수 있음**(winget 설치 후 PATH 갱신 필요, 2026-07-08 재확인 시 `gh: command not found`) — 실제 `git push`/`pull`은 `gh` 없이도 Windows Credential Manager에 저장된 자격증명으로 정상 동작하므로(같은 날 `git ls-remote origin` 성공으로 확인), `gh` 부재 자체를 "GitHub 접근 불가"로 오판하지 말고 먼저 `git push`/`git ls-remote`부터 시도할 것. `gh`가 실제로 필요한 작업(신규 device-code 로그인, PR/이슈 조작 등)에서만 PATH 문제를 의심.
+- **미니PC 배포와의 관계**: 이 프로젝트 자체는 상시 서비스가 아니라 라이브러리라 `d:\www\SHARED_MINI_PC_SERVER.md`에 독립 배포 항목이 없다. 2026-07-08, 주단·코단이 실제로 `uv add git+https://github.com/xeonix0/chartnun.git`로 이 라이브러리를 의존성 추가해 연결 완료(§8 5번) — Windows Credential Manager 인증으로 비공개 저장소 clone이 문제없이 동작함을 확인. 미니PC(`unrules-nucbox-g2`)는 `sudo` 비밀번호가 없어 `uv sync`(사용자 계정 권한)로만 의존성을 설치할 수 있는 제약이 있는데(SHARED_MINI_PC_SERVER.md 참고), git 의존성은 `uv sync`만으로 그대로 동작하는 방식이라 이 제약과 충돌하지 않는다. **다만 미니PC는 리눅스이고 인증 수단(Windows Credential Manager)이 이 개발 머신과 다르므로, 실제 미니PC 배포 시점에 git clone 인증(SSH 키 또는 PAT)이 별도로 필요할 수 있음 — 그때 재확인할 것.**
 
 ---
 
@@ -168,7 +171,7 @@ core 모듈 1개 단위 (예: pivot.py+ma_relation.py 완료) 완료마다 → /
 | 시각화 색상/UI 패턴 참고 | `d:\www\코단-코인단타\docs\DASHBOARD_UI_GUIDE.md` | 색상 매핑·숫자 정밀도·실행 검증 방법론(§7) 참고 — 그대로 베끼지 말고 이 프로젝트 구조(라이브러리, 대시보드 아님)에 맞게 판단 |
 | 규율 원류 (주단) | `d:\www\주단-주식단타\CLAUDE.md` | STOP GATE·단일출처 원칙의 원본 |
 | 규율 원류 (코단) | `d:\www\코단-코인단타\CLAUDE.md` | 코인 선물 도메인에 맞춘 확장판 (레버리지·청산 STOP GATE 추가 등 — 이 프로젝트엔 미적용) |
-| 미니PC 서버 공통 인프라 | `d:\www\SHARED_MINI_PC_SERVER.md` | 이 프로젝트 자체는 상시 서비스가 아니라 라이브러리이므로 배포 대상 아님. 참고만 |
+| 미니PC 서버 공통 인프라 | `d:\www\SHARED_MINI_PC_SERVER.md` | 이 프로젝트 자체는 상시 서비스가 아니라 라이브러리이므로 독립 배포 대상 아님. 설치 방식은 git 의존성으로 확정(2026-07-08, 위 "환경 메모 > 미니PC 배포와의 관계" 참고) — 실제 미니PC 배포 시 리눅스 환경의 git clone 인증 수단만 재확인하면 됨 |
 
 ---
 

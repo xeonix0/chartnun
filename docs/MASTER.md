@@ -9,7 +9,7 @@
 - [x] 2. `summarizer` 1차 템플릿 — `templates.py` + `build_summary.build_partial_summary()`. pivot/ma_relation 두 모듈로 만들 수 있는 추세·위치 문장만 조합 (거래량/패턴/박스권 문장은 3·4번 완료 후 `analyze_and_summarize()`/`ChartAnalysis` 전체 조립 때 추가)
 - [x] 3. `range_box.py` — `box_bounds`(직전 확정 window개 봉으로 박스 경계) + `range_compression_pct`(최근 박스 대비 lookback 구간 평균 박스폭 비율) + `determine_range_state`(압축중/이탈/아님 판정)
 - [x] 4. `volume_filter.py`(`average_volume`/`volume_ratio`, candles[-1] 진행 중 봉 제외 원칙은 range_box와 동일) + `candle_pattern.py`(`detect_candle_pattern` — candles[-3]/[-2] 몸통 기준 장악형 판정) 구현. 이 두 모듈 완료를 계기로 `summarizer/build_summary.py`의 `build_partial_summary()`를 스펙 §7 진입점 이름 그대로인 `analyze_and_summarize()`로 교체 — pivot/ma_relation/range_box/volume_filter/candle_pattern 5개 core 모듈 전체를 `ChartAnalysis`로 조립하고 스펙 5장 5문장(추세/위치/거래량/패턴/종합)을 모두 생성
-- [~] 5. `adapters/bybit_adapter.py`(코단/비단 공용) + `adapters/kiwoom_adapter.py`(주단) 구현 완료. Bybit는 실제 공개 API(`GET /v5/market/kline`, 인증 불필요)로 BTCUSDT 1H/5m 실 데이터를 받아 `analyze_and_summarize()`까지 전체 파이프라인 실행 검증 완료(`tests/fixtures/real/kodan_BTCUSDT_60.json`, `bidan_BTCUSDT_5.json`). **미완료로 남은 것**: (1) 주단은 REST 과거 조회 자체가 없어(WS 실시간 집계만 존재) 이 세션에서 실 데이터 fixture를 만들 수 없었음 — kiwoom_adapter는 스펙대로 구현했지만 검증은 합성 데이터 단위테스트뿐, (2) 스펙 §8-5가 말하는 "주단/코단/비단 연동"은 각 소비 프로젝트 저장소(`d:\www\주단-주식단타` 등)의 스캐너 코드에 이 라이브러리를 실제로 의존성 추가해 import하는 작업인데, 이는 이 저장소 범위 밖이라 착수 안 함 — 사용자 확인 필요
+- [x] 5. `adapters/bybit_adapter.py`(코단/비단 공용) + `adapters/kiwoom_adapter.py`(주단) 구현 완료. Bybit는 실제 공개 API(`GET /v5/market/kline`, 인증 불필요)로 BTCUSDT 1H/5m 실 데이터를 받아 `analyze_and_summarize()`까지 전체 파이프라인 실행 검증 완료(`tests/fixtures/real/kodan_BTCUSDT_60.json`, `bidan_BTCUSDT_5.json`). **3개 소비 프로젝트 실제 통합(2026-07-08 완료, 상세는 `docs/HISTORY.md` 참고)**: 주단·코단은 `uv add git+https://github.com/xeonix0/chartnun.git`으로 실제 의존성 추가 + 각자 기존 실시간 알림 경로(주단 `TradingEngine._on_bar_closed`→`Notifier.notify`, 코단 `ReboundLiveEngine.on_kline`→`format_rebound_entry_alert`)에 `analyze_and_summarize()`를 연결해 요약 문장을 알림에 덧붙였고, 각 저장소 게이트(ruff/mypy strict/pytest) 전부 통과 확인. 비단은 의존성만 추가(Phase 0 백테스트 전용 상태로 프로젝트 자체가 일시 중단 중이라 실시간 스캐너가 없음) — 어댑터 배선은 비단이 Phase 1(실시간 스캐너 구현)을 재개하는 시점으로 이월. 주단의 REST 과거 조회 부재로 인한 kiwoom_adapter 실 데이터(Bybit 방식) fixture 검증은 여전히 미실시이나, 이번 통합에서 주단 저장소 자체의 실제 `Bar` 데이터로 `analyze_and_summarize()`가 정상 동작함을 통합 테스트로 확인함(STOP GATE 3 취지 충족)
 
 ## 확정된 설계 계약
 
@@ -34,6 +34,7 @@
 | `candle_pattern.py` 장악형 판정 | `candles[-2]`(직전 확정 봉)와 `candles[-3]`(그 이전 확정 봉)의 시가/종가 몸통만으로 판정 — `candles[-1]`은 진행 중일 수 있어 제외(schema.py 불변식 그대로 적용). 몸통이 완전히 감싸야("상승장악형"/"하락장악형") 인정, 꼬리(고가/저가)는 보지 않음 | `core/candle_pattern.py` |
 | `analyze_and_summarize()`의 resistance/support pivot 미탐지 폴백 | `ChartAnalysis.resistance_price`/`support_price`가 스펙상 `float`(Optional 아님)이므로, pivot이 하나도 없으면(완전 평탄 구간 등) 현재가(`candles[-1].close`)를 그대로 채우고 거리는 0.0으로 채운다. `trend_sentence()`는 이 폴백과 별개로 원본 `pivot_high`/`pivot_low`(`None` 가능)를 그대로 받아 "탐지되지 않았습니다"를 명시 — 폴백 때문에 "탐지 안 됨" 사실이 요약 문장에서 가려지지 않게 함 | `summarizer/build_summary.py` |
 | 최종 한 줄 요약(`final_summary_sentence`) | 스펙 §6-5 "조건 늘리며 확장" 원칙대로 지금은 규칙 기반 MVP(패턴+고거래량 → 박스권 이탈 → 박스권 압축중 → 상승눌림/하락지속 → 기본 문구 순으로 우선순위 판정). 조건 추가는 항상 이 함수에서만 | `summarizer/templates.py` |
+| 소비 프로젝트 의존성 방식 (2026-07-08 확정) | git 의존성 — `uv add git+https://github.com/xeonix0/chartnun.git`. 로컬 경로 의존성은 미니PC 등 다른 머신에서 절대경로가 다르므로 배제. 주단/코단 양쪽에서 Windows Credential Manager 인증으로 비공개 저장소 clone이 실제로 성공함을 확인(별도 PAT/SSH 설정 불필요) | 주단/코단 `pyproject.toml`/`uv.lock` |
 
 ## 소비 프로젝트 실제 데이터 포맷 (2026-07-08 조사)
 
@@ -57,6 +58,7 @@
 
 ## 다음 액션 (§8 순서)
 
-1. 주단 실 데이터 검증 — WS 틱을 일정 시간 실제로 수집해 60봉 이상을 쌓은 뒤 `tests/fixtures/real/judan_*.json` 확보(REST 과거 조회가 없어 코단/비단과 달리 즉시 확보 불가)
-2. 3개 소비 프로젝트 저장소에 실제 통합 — `주단-주식단타`/`코단-코인단타`/`비단_비트코인단타`의 스캐너 코드에 이 라이브러리를 의존성으로 추가하고 adapter를 실제로 호출하도록 연결(각 프로젝트 저장소 수정 필요, 사용자 확인 후 진행)
+1. 주단 실 데이터 검증 — WS 틱을 일정 시간 실제로 수집해 60봉 이상을 쌓은 뒤 `tests/fixtures/real/judan_*.json` 확보(REST 과거 조회가 없어 코단/비단과 달리 즉시 확보 불가). 이번 세션의 통합 테스트(주단 저장소 `tests/test_state_machine.py::test_chart_summary_attached_once_60_bars_accumulated`)로 실제 `Bar`→`kiwoom_adapter`→`analyze_and_summarize()` 경로 자체는 검증됐으나, 정적 fixture 커밋은 여전히 미생성
+2. 비단 어댑터 배선 — 비단이 Phase 1(실시간 스캐너 구현)을 재개하면 `chart_interpreter.adapters.bybit_adapter`를 코단과 동일한 패턴으로 연결(의존성은 2026-07-08에 이미 추가됨, `d:\www\비단_비트코인단타\docs\HISTORY.md` 참고)
 3. 2차 개발(§10) — `visualizer/static_chart.py` 등: 지금까지의 수치 재계산 대조를 실제 캔들차트 육안 대조로 대체
+4. 미니PC(`unrules-nucbox-g2`) 배포 시 설치 방식 재확인 — git 의존성(`uv add git+https://github.com/xeonix0/chartnun.git`) 방식이 주단/코단 양쪽에서 실제로 동작함을 이번 세션에 확인(Windows Credential Manager 인증으로 비공개 저장소 clone 성공) — 미니PC(리눅스, 별도 인증 수단)에서도 동일하게 동작하는지는 실제 배포 시점에 재확인 필요
