@@ -6,7 +6,10 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-visualizer = ["mplfinance>=0.12"]
+visualizer = [
+    "mplfinance>=0.12",
+    "plotly>=5.0",
+]
 
 [dependency-groups]
 dev = [
@@ -15,6 +18,7 @@ dev = [
     "pytest>=7.0.0",
     "mplfinance>=0.12",
     "pandas-stubs>=2.0.0",
+    "plotly>=5.0",
 ]
 
 [tool.ruff]
@@ -34,7 +38,7 @@ strict = true
 python_version = "3.12"
 
 [[tool.mypy.overrides]]
-module = ["mplfinance.*"]
+module = ["mplfinance.*", "plotly.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
