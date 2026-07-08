@@ -27,8 +27,8 @@ compressionPct = (not na(avgRange) and avgRange > 0) ? recentRange / avgRange * 
 isBreakout = close > boxHigh or close < boxLow
 isCompressed = not na(compressionPct) and compressionPct <= compressionThresholdPct
 
-plot(boxHigh, title="박스 상단", color=#7E57C2, style=plot.style_line)
-plot(boxLow, title="박스 하단", color=#7E57C2, style=plot.style_line)
+plot(boxHigh, title="박스 상단", color=#B388FF, style=plot.style_line, linewidth=2)
+plot(boxLow, title="박스 하단", color=#B388FF, style=plot.style_line, linewidth=2)
 
-bgcolor(isCompressed and not isBreakout ? color.new(#7E57C2, 85) : na)
-plotshape(isBreakout, title="박스권 이탈", style=shape.triangleup, location=location.abovebar, color=close > boxHigh ? #2E7D32 : #C62828, size=size.tiny)
+bgcolor(isCompressed and not isBreakout ? color.new(#B388FF, 85) : na)
+plotshape(isBreakout, title="박스권 이탈", style=shape.triangleup, location=location.abovebar, color=close > boxHigh ? #26A69A : #EF5350, size=size.tiny)

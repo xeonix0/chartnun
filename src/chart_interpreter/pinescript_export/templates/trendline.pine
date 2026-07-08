@@ -36,8 +36,8 @@ var line uptrendLine = na
 
 if not na(pivotHigh) and not na(prevHighPrice)
     line.delete(downtrendLine)
-    downtrendLine := line.new(prevHighBar, prevHighPrice, lastHighBar, lastHighPrice, color=#EF6C00, width=2, style=line.style_dashed)
+    downtrendLine := line.new(prevHighBar, prevHighPrice, lastHighBar, lastHighPrice, color=#FFA726, width=3, style=line.style_dashed)
 
 if not na(pivotLow) and not na(prevLowPrice)
     line.delete(uptrendLine)
-    uptrendLine := line.new(prevLowBar, prevLowPrice, lastLowBar, lastLowPrice, color=#EF6C00, width=2, style=line.style_dashed)
+    uptrendLine := line.new(prevLowBar, prevLowPrice, lastLowBar, lastLowPrice, color=#FFA726, width=3, style=line.style_dashed)

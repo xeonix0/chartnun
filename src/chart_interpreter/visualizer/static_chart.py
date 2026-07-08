@@ -19,11 +19,18 @@ import pandas as pd  # noqa: E402
 from chart_interpreter.core import ma_relation, range_box, trendline
 from chart_interpreter.schema import Candle, ChartAnalysis, ChartInput
 from chart_interpreter.visualizer.colors import (
+    CHART_BACKGROUND_COLOR,
+    CHART_GRID_COLOR,
+    CHART_TEXT_COLOR,
     DOWN_COLOR,
     MA_COLOR,
+    MA_LINE_WIDTH,
     RANGE_BOX_COLOR,
+    RANGE_BOX_WIDTH,
     SUPPORT_RESISTANCE_COLOR,
+    SUPPORT_RESISTANCE_WIDTH,
     TRENDLINE_COLOR,
+    TRENDLINE_WIDTH,
     UP_COLOR,
 )
 
@@ -132,7 +139,10 @@ def render_chart(
             padded = [math.nan] * (n - len(ema_values)) + ema_values
             add_plots.append(
                 mpf.make_addplot(
-                    padded, color=MA_COLOR, width=1.0, label=f"EMA{ma_relation.DEFAULT_MA_PERIOD}"
+                    padded,
+                    color=MA_COLOR,
+                    width=MA_LINE_WIDTH,
+                    label=f"EMA{ma_relation.DEFAULT_MA_PERIOD}",
                 )
             )
 
@@ -144,6 +154,7 @@ def render_chart(
                 mpf.make_addplot(
                     _connecting_line(n, point1, point2),
                     color=TRENDLINE_COLOR,
+                    width=TRENDLINE_WIDTH,
                     linestyle="dashed",
                     label="추세선",
                 )
@@ -163,6 +174,7 @@ def render_chart(
             mpf.make_addplot(
                 [analysis.resistance_price] * n,
                 color=SUPPORT_RESISTANCE_COLOR,
+                width=SUPPORT_RESISTANCE_WIDTH,
                 linestyle="dotted",
                 label="저항선",
             )
@@ -171,6 +183,7 @@ def render_chart(
             mpf.make_addplot(
                 [analysis.support_price] * n,
                 color=SUPPORT_RESISTANCE_COLOR,
+                width=SUPPORT_RESISTANCE_WIDTH,
                 linestyle="dotted",
                 label="지지선",
             )
@@ -180,17 +193,39 @@ def render_chart(
         box_high, box_low = range_box.box_bounds(candles)
         add_plots.append(
             mpf.make_addplot(
-                [box_high] * n, color=RANGE_BOX_COLOR, linestyle="dashdot", label="박스 상단"
+                [box_high] * n,
+                color=RANGE_BOX_COLOR,
+                width=RANGE_BOX_WIDTH,
+                linestyle="dashdot",
+                label="박스 상단",
             )
         )
         add_plots.append(
             mpf.make_addplot(
-                [box_low] * n, color=RANGE_BOX_COLOR, linestyle="dashdot", label="박스 하단"
+                [box_low] * n,
+                color=RANGE_BOX_COLOR,
+                width=RANGE_BOX_WIDTH,
+                linestyle="dashdot",
+                label="박스 하단",
             )
         )
 
     marketcolors = mpf.make_marketcolors(up=UP_COLOR, down=DOWN_COLOR, inherit=True)
-    style = mpf.make_mpf_style(marketcolors=marketcolors, rc=_korean_font_rc())
+    style = mpf.make_mpf_style(
+        marketcolors=marketcolors,
+        facecolor=CHART_BACKGROUND_COLOR,
+        figcolor=CHART_BACKGROUND_COLOR,
+        edgecolor=CHART_GRID_COLOR,
+        gridcolor=CHART_GRID_COLOR,
+        gridstyle="--",
+        rc={
+            **_korean_font_rc(),
+            "text.color": CHART_TEXT_COLOR,
+            "axes.labelcolor": CHART_TEXT_COLOR,
+            "xtick.color": CHART_TEXT_COLOR,
+            "ytick.color": CHART_TEXT_COLOR,
+        },
+    )
 
     plot_kwargs: dict[str, object] = {
         "type": "candle",
@@ -219,11 +254,11 @@ def render_chart(
         )
 
     if any(ap.get("label") for ap in add_plots):
-        axlist[0].legend(loc="upper left", fontsize=8)
+        axlist[0].legend(loc="upper left", fontsize=8, labelcolor=CHART_TEXT_COLOR)
 
     os.makedirs(save_dir, exist_ok=True)
     filename = f"{chart_input.symbol}_{chart_input.timeframe}_{candles[-1].timestamp}.png"
     save_path = os.path.join(save_dir, filename)
-    fig.savefig(save_path)
+    fig.savefig(save_path, facecolor=fig.get_facecolor())
     plt.close(fig)
     return save_path

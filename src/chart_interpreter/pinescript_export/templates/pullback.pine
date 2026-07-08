@@ -13,9 +13,9 @@ isNear = math.abs(distancePct) <= nearThresholdPct
 isAboveMa = distancePct > 0 and not isNear
 isBelowMa = distancePct < 0 and not isNear
 
-plot(ema, title="EMA", color=#1565C0, linewidth=1)
+plot(ema, title="EMA", color=#42A5F5, linewidth=2)
 
-plotshape(isAboveMa, title="이평선 위 눌림", style=shape.circle, location=location.belowbar, color=#2E7D32, size=size.tiny)
-plotshape(isBelowMa, title="이평선 아래", style=shape.circle, location=location.abovebar, color=#C62828, size=size.tiny)
+plotshape(isAboveMa, title="이평선 위 눌림", style=shape.circle, location=location.belowbar, color=#26A69A, size=size.tiny)
+plotshape(isBelowMa, title="이평선 아래", style=shape.circle, location=location.abovebar, color=#EF5350, size=size.tiny)
 
-bgcolor(isNear ? color.new(#1565C0, 90) : na)
+bgcolor(isNear ? color.new(#42A5F5, 90) : na)

@@ -7,11 +7,18 @@ from plotly.subplots import make_subplots
 from chart_interpreter.core import ma_relation, range_box, trendline
 from chart_interpreter.schema import ChartAnalysis, ChartInput
 from chart_interpreter.visualizer.colors import (
+    CHART_BACKGROUND_COLOR,
+    CHART_GRID_COLOR,
+    CHART_TEXT_COLOR,
     DOWN_COLOR,
     MA_COLOR,
+    MA_LINE_WIDTH,
     RANGE_BOX_COLOR,
+    RANGE_BOX_WIDTH,
     SUPPORT_RESISTANCE_COLOR,
+    SUPPORT_RESISTANCE_WIDTH,
     TRENDLINE_COLOR,
+    TRENDLINE_WIDTH,
     UP_COLOR,
 )
 from chart_interpreter.visualizer.static_chart import DEFAULT_OVERLAYS, VALID_OVERLAYS
@@ -59,7 +66,9 @@ def build_figure(
             low=[c.low for c in candles],
             close=[c.close for c in candles],
             increasing_line_color=UP_COLOR,
+            increasing_fillcolor=UP_COLOR,
             decreasing_line_color=DOWN_COLOR,
+            decreasing_fillcolor=DOWN_COLOR,
             name="가격",
             showlegend=False,
         ),
@@ -76,7 +85,7 @@ def build_figure(
                     x=x,
                     y=padded,
                     mode="lines",
-                    line={"color": MA_COLOR, "width": 1.5},
+                    line={"color": MA_COLOR, "width": MA_LINE_WIDTH},
                     name=f"EMA{ma_relation.DEFAULT_MA_PERIOD}",
                 ),
                 row=1,
@@ -92,7 +101,7 @@ def build_figure(
                     x=[x[point1[0]], x[point2[0]]],
                     y=[point1[1], point2[1]],
                     mode="lines+markers",
-                    line={"color": TRENDLINE_COLOR, "width": 1.5, "dash": "dash"},
+                    line={"color": TRENDLINE_COLOR, "width": TRENDLINE_WIDTH, "dash": "dash"},
                     marker={"color": TRENDLINE_COLOR, "size": 8},
                     name="추세선",
                 ),
@@ -106,7 +115,11 @@ def build_figure(
                 x=x,
                 y=[analysis.resistance_price] * n,
                 mode="lines",
-                line={"color": SUPPORT_RESISTANCE_COLOR, "width": 1, "dash": "dot"},
+                line={
+                    "color": SUPPORT_RESISTANCE_COLOR,
+                    "width": SUPPORT_RESISTANCE_WIDTH,
+                    "dash": "dot",
+                },
                 name="저항선",
             ),
             row=1,
@@ -117,7 +130,11 @@ def build_figure(
                 x=x,
                 y=[analysis.support_price] * n,
                 mode="lines",
-                line={"color": SUPPORT_RESISTANCE_COLOR, "width": 1, "dash": "dot"},
+                line={
+                    "color": SUPPORT_RESISTANCE_COLOR,
+                    "width": SUPPORT_RESISTANCE_WIDTH,
+                    "dash": "dot",
+                },
                 name="지지선",
             ),
             row=1,
@@ -131,7 +148,7 @@ def build_figure(
                 x=x,
                 y=[box_high] * n,
                 mode="lines",
-                line={"color": RANGE_BOX_COLOR, "width": 1, "dash": "dashdot"},
+                line={"color": RANGE_BOX_COLOR, "width": RANGE_BOX_WIDTH, "dash": "dashdot"},
                 name="박스 상단",
             ),
             row=1,
@@ -142,7 +159,7 @@ def build_figure(
                 x=x,
                 y=[box_low] * n,
                 mode="lines",
-                line={"color": RANGE_BOX_COLOR, "width": 1, "dash": "dashdot"},
+                line={"color": RANGE_BOX_COLOR, "width": RANGE_BOX_WIDTH, "dash": "dashdot"},
                 name="박스 하단",
             ),
             row=1,
@@ -182,7 +199,13 @@ def build_figure(
         title=f"{chart_input.symbol} {chart_input.timeframe}",
         xaxis_rangeslider_visible=False,
         legend={"orientation": "h"},
+        template="plotly_dark",
+        paper_bgcolor=CHART_BACKGROUND_COLOR,
+        plot_bgcolor=CHART_BACKGROUND_COLOR,
+        font={"color": CHART_TEXT_COLOR},
     )
+    fig.update_xaxes(gridcolor=CHART_GRID_COLOR, zerolinecolor=CHART_GRID_COLOR)
+    fig.update_yaxes(gridcolor=CHART_GRID_COLOR, zerolinecolor=CHART_GRID_COLOR)
 
     return fig
 
